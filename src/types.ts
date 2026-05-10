@@ -10,7 +10,6 @@ export type ModelId = `${string}/${string}`;
 export type Mode = 'gateway' | 'direct';
 export type ApiPath = 'generateImage' | 'generateText';
 
-// §3.4 Capability descriptor.
 export interface Capability {
   readonly textToImage: boolean;
   readonly imageEdit: boolean;
@@ -27,7 +26,6 @@ export interface Capability {
   readonly transforms?: readonly TransformKind[];
 }
 
-// §3.5 GeneratedImage shape.
 export interface GeneratedImage {
   readonly base64: string;
   readonly uint8Array: Uint8Array;
@@ -37,7 +35,6 @@ export interface GeneratedImage {
   readonly seed?: number;
 }
 
-// §3.5 Result.request shape.
 export interface ResultRequest {
   readonly operation: RequestOperation;
   readonly prompt?: string;
@@ -48,7 +45,6 @@ export interface ResultRequest {
   readonly referenceCount: number;
 }
 
-// §3.5 normalized result shape.
 export interface ImageGenResult {
   readonly images: readonly GeneratedImage[];
   readonly model: ModelId;
@@ -63,7 +59,6 @@ export interface ImageGenResult {
   };
 }
 
-// §4.2 generate inputs.
 export interface GenerateInput {
   readonly model?: ModelId;
   readonly prompt: string;
@@ -79,11 +74,9 @@ export interface GenerateInput {
   readonly signal?: AbortSignal;
 }
 
-// Logging surface (§4.1).
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type Logger = (level: LogLevel, message: string, meta?: Record<string, unknown>) => void;
 
-// §4.1 client construction options (slice-1 subset; expanded in later slices).
 export interface ClientOptions {
   readonly mode?: Mode | 'auto';
   readonly defaultModel?: ModelId;
