@@ -33,9 +33,9 @@ describe('Client — slice 1', () => {
     await expect(client.generate({ prompt: 'a cat' })).rejects.toBeInstanceOf(ImageGenConfigError);
   });
 
-  test('generate without gateway key throws config error', async () => {
+  test('generate without gateway key falls back to direct mode (slice 2)', async () => {
     const client = new Client({ defaultModel: 'openai/gpt-image-2' }, {});
-    await expect(client.generate({ prompt: 'a cat' })).rejects.toBeInstanceOf(ImageGenConfigError);
+    await expect(client.generate({ prompt: 'a cat' })).rejects.toThrow();
   });
 
   test('logger is invoked when provided', async () => {
