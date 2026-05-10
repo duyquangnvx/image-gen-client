@@ -35,7 +35,9 @@ describe('Client — slice 1', () => {
 
   test('generate without gateway key falls back to direct mode (slice 2)', async () => {
     const client = new Client({ defaultModel: 'openai/gpt-image-2' }, {});
-    await expect(client.generate({ prompt: 'a cat' })).rejects.toThrow();
+    await expect(client.generate({ prompt: 'a cat' })).rejects.toMatchObject({
+      code: 'CONFIG_NO_PROVIDER',
+    });
   });
 
   test('logger is invoked when provided', async () => {

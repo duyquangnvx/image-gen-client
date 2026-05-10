@@ -11,11 +11,11 @@ import {
 import { composeChain } from '../middleware/chain.js';
 import type { Context, Handler } from '../middleware/chain.js';
 import { createLoggingMiddleware } from '../middleware/logging.js';
+import { createTimeoutMiddleware } from '../middleware/timeout.js';
 import { createValidationMiddleware } from '../middleware/validation-mw.js';
-import { createDefaultAdapter } from '../providers/default.js';
+import { selectAdapter } from '../providers/select.js';
 import type { ResolvedRequest } from '../providers/adapter.js';
-import { getModel } from '../registry.js';
-import { resolveMode } from '../resolver.js';
+import { resolveMode, resolveProvider } from '../resolver.js';
 import { normalizeResult } from '../result.js';
 import type { GenerateInput, ImageGenResult } from '../types.js';
 import type { ResolvedConfig } from '../config.js';
@@ -36,12 +36,12 @@ export async function runGenerate(args: RunGenerateArgs): Promise<ImageGenResult
     );
   }
 
-  const entry = getModel(modelId);
+  const entry = args.config.registry[modelId];
   if (entry === undefined) {
     throw new ImageGenConfigError(
       `model '${modelId}' is not in the registry`,
       'CONFIG_UNKNOWN_MODEL',
-      { modelId, hint: 'check the model id or register it via registerModel' },
+      { modelId, hint: 'register it via createClient({ models: { ... } }) or use a built-in id' },
     );
   }
 
@@ -52,6 +52,17 @@ export async function runGenerate(args: RunGenerateArgs): Promise<ImageGenResult
     env: args.env,
     ...(args.config.gatewayApiKey !== undefined && { gatewayApiKey: args.config.gatewayApiKey }),
   });
+
+  const resolvedProvider = resolveProvider({
+    modelId,
+    mode,
+    providers: args.config.providers,
+    env: args.env,
+  });
+
+  const slash = modelId.indexOf('/');
+  const modelName = slash > 0 ? modelId.slice(slash + 1) : modelId;
+  const adapter = await selectAdapter(resolvedProvider, { modelId, modelName });
 
   const req: ResolvedRequest = {
     operation: 'generate',
@@ -71,13 +82,12 @@ export async function runGenerate(args: RunGenerateArgs): Promise<ImageGenResult
     ...(args.input.signal !== undefined && { signal: args.input.signal }),
   };
 
-  const adapter = createDefaultAdapter();
   const terminal: Handler = async (resolvedReq) => {
     const start = Date.now();
     const call = adapter.buildCall(resolvedReq);
     if (call.fn !== 'generateImage') {
       throw new ImageGenProviderError(
-        'generateText path lands in slice 2',
+        'generateText path lands in slice 4',
         'PROVIDER_UNSUPPORTED_PATH',
       );
     }
@@ -92,7 +102,11 @@ export async function runGenerate(args: RunGenerateArgs): Promise<ImageGenResult
   };
 
   const chain = composeChain(
-    [createLoggingMiddleware(), createValidationMiddleware()],
+    [
+      createLoggingMiddleware(),
+      createValidationMiddleware(),
+      createTimeoutMiddleware(args.config.timeoutMs),
+    ],
     terminal,
   );
 

@@ -317,3 +317,75 @@ describe('mapAiSdkError — HTTP status → subtype (slice 2)', () => {
     expect(out).toBeInstanceOf(ContentPolicyError);
   });
 });
+
+import { defineModel } from '../define-model.js';
+import { mergeModels } from '../registry.js';
+
+vi.mock('@ai-sdk/openai', () => ({
+  createOpenAI: vi.fn(() => ({
+    image: vi.fn(() => ({ __direct: 'openai-handle' })),
+  })),
+}));
+
+describe('runGenerate — direct mode wiring (slice 2)', () => {
+  test('direct mode + native openai resolves provider, builds adapter, returns normalized result', async () => {
+    vi.mocked(generateImage).mockResolvedValue({
+      images: [
+        { base64: 'iVBORw0KGgo=', uint8Array: new Uint8Array([1, 2, 3]), mediaType: 'image/png' },
+      ],
+    } as never);
+
+    const result = await runGenerate({
+      input: { prompt: 'a cat' },
+      config: {
+        mode: 'direct',
+        defaultModel: 'openai/gpt-image-2',
+        timeoutMs: 120_000,
+        providers: { openai: { apiKey: 'sk-x' } },
+        registry: mergeModels(BUILT_IN_MODELS, {}),
+      },
+      env: {},
+    });
+
+    expect(result.mode).toBe('direct');
+    expect(result.model).toBe('openai/gpt-image-2');
+  });
+
+  test('uses merged registry — user model resolves correctly', async () => {
+    vi.mocked(generateImage).mockResolvedValue({
+      images: [{ uint8Array: new Uint8Array([0]), base64: 'AA==', mediaType: 'image/png' }],
+    } as never);
+
+    const cx = defineModel('cx/gpt-5.4-image', 'cx', {
+      textToImage: true,
+      imageEdit: false,
+      multiReference: false,
+      transparentBackground: false,
+      maxN: 1,
+      supportsSeed: false,
+      supportsNegativePrompt: false,
+      apiPath: 'generateImage',
+    });
+
+    vi.doMock('@ai-sdk/openai-compatible', () => ({
+      createOpenAICompatible: vi.fn(() => ({ imageModel: vi.fn(() => ({ __cx: true })) })),
+    }));
+
+    const result = await runGenerate({
+      input: { prompt: 'a cat' },
+      config: {
+        mode: 'direct',
+        defaultModel: 'cx/gpt-5.4-image',
+        timeoutMs: 120_000,
+        providers: {
+          cx: { kind: 'openai-compatible', baseURL: 'http://localhost:20128/v1', apiKey: 'k' },
+        },
+        registry: mergeModels(BUILT_IN_MODELS, { 'cx/gpt-5.4-image': cx }),
+      },
+      env: {},
+    });
+
+    expect(result.model).toBe('cx/gpt-5.4-image');
+    expect(result.mode).toBe('direct');
+  });
+});
