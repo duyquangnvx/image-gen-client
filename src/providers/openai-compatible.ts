@@ -23,7 +23,7 @@ export async function createOpenAICompatibleAdapter(
       return {
         fn: 'generateImage',
         args: {
-          model: imageModel as unknown as string,
+          model: imageModel,
           prompt: req.prompt ?? '',
           n: req.n,
           ...(req.size !== undefined && { size: req.size }),

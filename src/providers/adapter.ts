@@ -28,11 +28,15 @@ export interface ResolvedRequest {
 }
 
 // AI SDK v6 generateImage args (slice-1 subset). Verified against ai@6.0.177:
-// model is ImageModel (string | ImageModelV3 | ImageModelV2), so plain string is valid.
+// model is `string | ImageModelV3 | ImageModelV2` — the gateway path passes a
+// gateway-style id string; native/openai-compatible adapters pass the SDK's
+// opaque ImageModel handle. We type it `unknown` here so each adapter can pass
+// whichever shape its provider expects without `as` casts; the terminal handler
+// in operations/generate.ts re-casts to the SDK's parameter type at the call site.
 // size is `${number}x${number}` in the SDK; we use string here at the adapter boundary
 // since validation has already checked the format upstream.
 export interface GenerateImageArgs {
-  readonly model: string;
+  readonly model: unknown;
   readonly prompt: string;
   readonly n?: number;
   readonly size?: string;

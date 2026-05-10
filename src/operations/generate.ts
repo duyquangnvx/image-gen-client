@@ -134,7 +134,7 @@ export function mapAiSdkError(err: unknown, req: ResolvedRequest): Error {
         modelId: req.modelId,
         mode: req.mode,
         cause: err,
-        ...(status !== undefined && { providerError: { status } }),
+        providerError: { status },
       });
     }
     if (status === 401 || status === 403) {
@@ -174,7 +174,7 @@ export function mapAiSdkError(err: unknown, req: ResolvedRequest): Error {
 
     const looksLikeNetwork =
       /(fetch|network|ECONN|ETIMEDOUT|ENOTFOUND)/i.test(err.message) ||
-      err.cause !== undefined;
+      err.cause instanceof TypeError;
     if (looksLikeNetwork) {
       return new ImageGenNetworkError(err.message, 'NETWORK_ERROR', {
         modelId: req.modelId,
