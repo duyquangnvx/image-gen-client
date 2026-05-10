@@ -13,3 +13,12 @@ export type {
   ResultRequest,
   TransformKind,
 } from './types.js';
+
+export {
+  ImageGenError,
+  ImageGenConfigError,
+  ImageGenValidationError,
+  ImageGenProviderError,
+  ImageGenNetworkError,
+} from './errors.js';
+export type { ErrorCategory, ImageGenErrorInit } from './errors.js';
