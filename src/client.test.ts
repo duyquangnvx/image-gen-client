@@ -1,6 +1,9 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import { Client } from './client.js';
 import { ImageGenConfigError } from './errors.js';
+import { defineModel as defineModelExport } from './index.js';
+import type { ProviderConfig as PCType } from './index.js';
+import { createClient as createClientFromIndex } from './index.js';
 import { PIXEL_1X1_BASE64, PIXEL_1X1_BYTES } from '../tests/fixtures/pixel-1x1.png.base64.js';
 
 vi.mock('ai', () => ({ generateImage: vi.fn() }));
@@ -57,5 +60,53 @@ describe('Client — slice 1', () => {
     await client.generate({ prompt: 'a cat' });
     expect(calls.some((c) => c.startsWith('info:image-gen start'))).toBe(true);
     expect(calls.some((c) => c.startsWith('info:image-gen finish'))).toBe(true);
+  });
+});
+
+describe('public exports (slice 2)', () => {
+  test('defineModel is exported from package root', () => {
+    expect(typeof defineModelExport).toBe('function');
+  });
+
+  test('ProviderConfig type is exported', () => {
+    const pc: PCType = { apiKey: 'k' };
+    expect(pc).toBeDefined();
+  });
+});
+
+describe('createClient — slice 2 options', () => {
+  test('accepts providers option without throwing', () => {
+    const client = createClientFromIndex(
+      {
+        mode: 'direct',
+        providers: { openai: { apiKey: 'sk-x' } },
+        defaultModel: 'openai/gpt-image-2',
+      },
+      {},
+    );
+    expect(client).toBeDefined();
+  });
+
+  test('accepts user models option without throwing', () => {
+    const cx = defineModelExport('cx/test-image', 'cx', {
+      textToImage: true,
+      imageEdit: false,
+      multiReference: false,
+      transparentBackground: false,
+      maxN: 1,
+      supportsSeed: false,
+      supportsNegativePrompt: false,
+      apiPath: 'generateImage',
+    });
+    const client = createClientFromIndex(
+      {
+        mode: 'direct',
+        providers: { cx: { kind: 'openai-compatible', baseURL: 'http://x/v1' } },
+        models: { 'cx/test-image': cx },
+        defaultModel: 'cx/test-image',
+      },
+      {},
+    );
+    expect(client).toBeDefined();
   });
 });
