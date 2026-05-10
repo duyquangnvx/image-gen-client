@@ -5,6 +5,10 @@ import {
   ImageGenValidationError,
   ImageGenProviderError,
   ImageGenNetworkError,
+  RateLimitError,
+  AuthError,
+  ContentPolicyError,
+  ModelUnavailableError,
 } from './errors.js';
 
 describe('ImageGenError', () => {
@@ -76,5 +80,45 @@ describe('ImageGenNetworkError', () => {
     const err = new ImageGenNetworkError('connection reset', 'NETWORK_ERROR');
     expect(err.category).toBe('network');
     expect(err.retryable).toBe(true);
+  });
+});
+
+describe('error subtypes (slice 2)', () => {
+  test('RateLimitError extends ImageGenProviderError, retryable=true, code=RATE_LIMIT', () => {
+    const err = new RateLimitError('rate limit hit', { modelId: 'openai/gpt-image-2', mode: 'direct' });
+    expect(err).toBeInstanceOf(ImageGenProviderError);
+    expect(err.code).toBe('RATE_LIMIT');
+    expect(err.category).toBe('provider');
+    expect(err.retryable).toBe(true);
+    expect(err.modelId).toBe('openai/gpt-image-2');
+    expect(err.name).toBe('RateLimitError');
+  });
+
+  test('AuthError code=AUTH retryable=false', () => {
+    const err = new AuthError('bad key');
+    expect(err).toBeInstanceOf(ImageGenProviderError);
+    expect(err.code).toBe('AUTH');
+    expect(err.retryable).toBe(false);
+    expect(err.name).toBe('AuthError');
+  });
+
+  test('ContentPolicyError code=CONTENT_POLICY retryable=false', () => {
+    const err = new ContentPolicyError('blocked');
+    expect(err.code).toBe('CONTENT_POLICY');
+    expect(err.retryable).toBe(false);
+    expect(err.name).toBe('ContentPolicyError');
+  });
+
+  test('ModelUnavailableError defaults to MODEL_UNAVAILABLE retryable=true', () => {
+    const err = new ModelUnavailableError('upstream 503');
+    expect(err.code).toBe('MODEL_UNAVAILABLE');
+    expect(err.retryable).toBe(true);
+    expect(err.name).toBe('ModelUnavailableError');
+  });
+
+  test('ModelUnavailableError can be constructed with code=MODEL_NOT_FOUND retryable=false', () => {
+    const err = new ModelUnavailableError('404 model not found', { code: 'MODEL_NOT_FOUND', retryable: false });
+    expect(err.code).toBe('MODEL_NOT_FOUND');
+    expect(err.retryable).toBe(false);
   });
 });

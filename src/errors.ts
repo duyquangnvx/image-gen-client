@@ -96,3 +96,43 @@ export class ImageGenNetworkError extends ImageGenError {
     this.name = 'ImageGenNetworkError';
   }
 }
+
+export interface RateLimitInit extends SubtypeInit {
+  readonly retryAfterMs?: number;
+}
+
+export class RateLimitError extends ImageGenProviderError {
+  readonly retryAfterMs?: number;
+  constructor(message: string, init: RateLimitInit = {}) {
+    super(message, 'RATE_LIMIT', { ...init, retryable: init.retryable ?? true });
+    this.name = 'RateLimitError';
+    if (init.retryAfterMs !== undefined) this.retryAfterMs = init.retryAfterMs;
+  }
+}
+
+export class AuthError extends ImageGenProviderError {
+  constructor(message: string, init: SubtypeInit = {}) {
+    super(message, 'AUTH', { ...init, retryable: init.retryable ?? false });
+    this.name = 'AuthError';
+  }
+}
+
+export class ContentPolicyError extends ImageGenProviderError {
+  constructor(message: string, init: SubtypeInit = {}) {
+    super(message, 'CONTENT_POLICY', { ...init, retryable: init.retryable ?? false });
+    this.name = 'ContentPolicyError';
+  }
+}
+
+export interface ModelUnavailableInit extends SubtypeInit {
+  readonly code?: 'MODEL_NOT_FOUND' | 'MODEL_UNAVAILABLE';
+}
+
+export class ModelUnavailableError extends ImageGenProviderError {
+  constructor(message: string, init: ModelUnavailableInit = {}) {
+    const code = init.code ?? 'MODEL_UNAVAILABLE';
+    const retryable = init.retryable ?? code === 'MODEL_UNAVAILABLE';
+    super(message, code, { ...init, retryable });
+    this.name = 'ModelUnavailableError';
+  }
+}
