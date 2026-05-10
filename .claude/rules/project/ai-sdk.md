@@ -1,0 +1,1 @@
+Luôn research thông tin mới nhất từ ai-sdk v6 trên internal và skill ai-sdk thay vì đoán API cũ (có khả năng bị outdate).
