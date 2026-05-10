@@ -1,4 +1,12 @@
-import type { ClientOptions, Logger, Mode, ModelId } from './types.js';
+import { BUILT_IN_MODELS, mergeModels } from './registry.js';
+import type {
+  ClientOptions,
+  Logger,
+  Mode,
+  ModelId,
+  ProviderConfig,
+  RegisteredModel,
+} from './types.js';
 
 export interface ResolvedConfig {
   readonly mode: Mode | 'auto';
@@ -7,6 +15,8 @@ export interface ResolvedConfig {
   readonly timeoutMs: number;
   readonly gatewayApiKey?: string;
   readonly gatewayBaseURL?: string;
+  readonly providers: Readonly<Record<string, ProviderConfig>>;
+  readonly registry: Readonly<Record<ModelId, RegisteredModel>>;
 }
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -25,5 +35,7 @@ export function resolveConfig(
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     ...(gatewayApiKey !== undefined && { gatewayApiKey }),
     ...(gatewayBaseURL !== undefined && { gatewayBaseURL }),
+    providers: options.providers ?? {},
+    registry: mergeModels(BUILT_IN_MODELS, options.models ?? {}),
   };
 }

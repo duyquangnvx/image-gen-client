@@ -10,6 +10,9 @@ import {
   ContentPolicyError,
   ModelUnavailableError,
 } from '../errors.js';
+import { BUILT_IN_MODELS } from '../registry.js';
+
+const baseConfigExtras = { providers: {}, registry: BUILT_IN_MODELS } as const;
 
 vi.mock('ai', () => ({
   generateImage: vi.fn(),
@@ -41,6 +44,7 @@ describe('runGenerate — slice 1', () => {
         defaultModel: 'openai/gpt-image-2',
         timeoutMs: 120_000,
         gatewayApiKey: 'k',
+        ...baseConfigExtras,
       },
       env: { AI_GATEWAY_API_KEY: 'k' },
     });
@@ -57,7 +61,7 @@ describe('runGenerate — slice 1', () => {
     await expect(
       runGenerate({
         input: { prompt: 'a cat' },
-        config: { mode: 'auto', timeoutMs: 120_000, gatewayApiKey: 'k' },
+        config: { mode: 'auto', timeoutMs: 120_000, gatewayApiKey: 'k', ...baseConfigExtras },
         env: { AI_GATEWAY_API_KEY: 'k' },
       }),
     ).rejects.toBeInstanceOf(ImageGenConfigError);
@@ -67,7 +71,7 @@ describe('runGenerate — slice 1', () => {
     await expect(
       runGenerate({
         input: { prompt: 'a cat', model: 'nope/missing' },
-        config: { mode: 'auto', timeoutMs: 120_000, gatewayApiKey: 'k' },
+        config: { mode: 'auto', timeoutMs: 120_000, gatewayApiKey: 'k', ...baseConfigExtras },
         env: { AI_GATEWAY_API_KEY: 'k' },
       }),
     ).rejects.toBeInstanceOf(ImageGenConfigError);
@@ -77,7 +81,7 @@ describe('runGenerate — slice 1', () => {
     await expect(
       runGenerate({
         input: { prompt: '', model: 'openai/gpt-image-2' },
-        config: { mode: 'auto', timeoutMs: 120_000, gatewayApiKey: 'k' },
+        config: { mode: 'auto', timeoutMs: 120_000, gatewayApiKey: 'k', ...baseConfigExtras },
         env: { AI_GATEWAY_API_KEY: 'k' },
       }),
     ).rejects.toBeInstanceOf(ImageGenValidationError);
@@ -94,6 +98,7 @@ describe('runGenerate — slice 1', () => {
           defaultModel: 'openai/gpt-image-2',
           timeoutMs: 120_000,
           gatewayApiKey: 'k',
+          ...baseConfigExtras,
         },
         env: { AI_GATEWAY_API_KEY: 'k' },
       });
@@ -116,6 +121,7 @@ describe('runGenerate — slice 1', () => {
           defaultModel: 'openai/gpt-image-2',
           timeoutMs: 120_000,
           gatewayApiKey: 'k',
+          ...baseConfigExtras,
         },
         env: { AI_GATEWAY_API_KEY: 'k' },
       });
@@ -137,6 +143,7 @@ describe('runGenerate — slice 1', () => {
           defaultModel: 'openai/gpt-image-2',
           timeoutMs: 120_000,
           gatewayApiKey: 'k',
+          ...baseConfigExtras,
         },
         env: { AI_GATEWAY_API_KEY: 'k' },
       });
@@ -161,6 +168,7 @@ describe('runGenerate — slice 1', () => {
           defaultModel: 'openai/gpt-image-2',
           timeoutMs: 120_000,
           gatewayApiKey: 'k',
+          ...baseConfigExtras,
         },
         env: { AI_GATEWAY_API_KEY: 'k' },
       }),
