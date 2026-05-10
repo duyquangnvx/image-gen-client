@@ -10,6 +10,26 @@ export type ModelId = `${string}/${string}`;
 export type Mode = 'gateway' | 'direct';
 export type ApiPath = 'generateImage' | 'generateText';
 
+export interface ProviderConfigNative {
+  readonly kind?: 'native';
+  readonly apiKey?: string;
+}
+
+export interface ProviderConfigOpenAICompatible {
+  readonly kind: 'openai-compatible';
+  readonly baseURL: string;
+  readonly apiKey?: string;
+  readonly name?: string;
+}
+
+export type ProviderConfig = ProviderConfigNative | ProviderConfigOpenAICompatible;
+
+export interface RegisteredModel {
+  readonly id: ModelId;
+  readonly provider: string;
+  readonly capability: Capability;
+}
+
 export interface Capability {
   readonly textToImage: boolean;
   readonly imageEdit: boolean;
@@ -86,4 +106,6 @@ export interface ClientOptions {
     readonly apiKey?: string;
     readonly baseURL?: string;
   };
+  readonly providers?: Readonly<Record<string, ProviderConfig>>;
+  readonly models?: Readonly<Record<ModelId, RegisteredModel>>;
 }

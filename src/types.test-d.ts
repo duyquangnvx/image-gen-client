@@ -11,6 +11,10 @@ import type {
   RequestOperation,
   Logger,
   LogLevel,
+  ClientOptions,
+  ProviderConfig,
+  ProviderConfigNative,
+  ProviderConfigOpenAICompatible,
 } from './types.js';
 
 test('§3.4 Capability shape', () => {
@@ -83,4 +87,23 @@ test('Logger type', () => {
   expectTypeOf<Logger>().toEqualTypeOf<
     (level: LogLevel, message: string, meta?: Record<string, unknown>) => void
   >();
+});
+
+test('ProviderConfig is a discriminated union on kind', () => {
+  expectTypeOf<ProviderConfig>().toMatchTypeOf<ProviderConfigNative | ProviderConfigOpenAICompatible>();
+});
+
+test('ProviderConfigNative shape', () => {
+  expectTypeOf<ProviderConfigNative['kind']>().toEqualTypeOf<'native' | undefined>();
+  expectTypeOf<ProviderConfigNative['apiKey']>().toEqualTypeOf<string | undefined>();
+});
+
+test('ProviderConfigOpenAICompatible requires baseURL', () => {
+  expectTypeOf<ProviderConfigOpenAICompatible['kind']>().toEqualTypeOf<'openai-compatible'>();
+  expectTypeOf<ProviderConfigOpenAICompatible['baseURL']>().toBeString();
+});
+
+test('ClientOptions has providers and models fields', () => {
+  expectTypeOf<ClientOptions['providers']>().toEqualTypeOf<Readonly<Record<string, ProviderConfig>> | undefined>();
+  expectTypeOf<ClientOptions['models']>().not.toBeUndefined();
 });
