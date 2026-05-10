@@ -22,3 +22,6 @@ export {
   ImageGenNetworkError,
 } from './errors.js';
 export type { ErrorCategory, ImageGenErrorInit } from './errors.js';
+
+export { getModel, listRegisteredModelIds } from './registry.js';
+export type { RegisteredModel } from './registry.js';
