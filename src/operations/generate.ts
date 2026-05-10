@@ -1,5 +1,13 @@
 import { generateImage } from 'ai';
-import { ImageGenConfigError, ImageGenNetworkError, ImageGenProviderError } from '../errors.js';
+import {
+  ImageGenConfigError,
+  ImageGenNetworkError,
+  ImageGenProviderError,
+  RateLimitError,
+  AuthError,
+  ContentPolicyError,
+  ModelUnavailableError,
+} from '../errors.js';
 import { composeChain } from '../middleware/chain.js';
 import type { Context, Handler } from '../middleware/chain.js';
 import { createLoggingMiddleware } from '../middleware/logging.js';
@@ -100,12 +108,56 @@ export async function runGenerate(args: RunGenerateArgs): Promise<ImageGenResult
   return chain(req, ctx);
 }
 
-function mapAiSdkError(err: unknown, req: ResolvedRequest): Error {
+export function mapAiSdkError(err: unknown, req: ResolvedRequest): Error {
   if (err instanceof Error) {
-    const name = err.name;
-    if (name === 'AbortError') {
-      return err;
+    if (err.name === 'AbortError') return err;
+
+    const status = readStatus(err);
+    const code = readErrorCode(err);
+
+    if (status === 429) {
+      return new RateLimitError(err.message, {
+        modelId: req.modelId,
+        mode: req.mode,
+        cause: err,
+        ...(status !== undefined && { providerError: { status } }),
+      });
     }
+    if (status === 401 || status === 403) {
+      return new AuthError(err.message, {
+        modelId: req.modelId,
+        mode: req.mode,
+        cause: err,
+        providerError: { status },
+      });
+    }
+    if (status === 404) {
+      return new ModelUnavailableError(err.message, {
+        code: 'MODEL_NOT_FOUND',
+        modelId: req.modelId,
+        mode: req.mode,
+        cause: err,
+        providerError: { status },
+      });
+    }
+    if (status !== undefined && status >= 500 && status < 600) {
+      return new ModelUnavailableError(err.message, {
+        code: 'MODEL_UNAVAILABLE',
+        modelId: req.modelId,
+        mode: req.mode,
+        cause: err,
+        providerError: { status },
+      });
+    }
+    if (status === 400 && code === 'content_policy_violation') {
+      return new ContentPolicyError(err.message, {
+        modelId: req.modelId,
+        mode: req.mode,
+        cause: err,
+        providerError: { status, type: code },
+      });
+    }
+
     const looksLikeNetwork =
       /(fetch|network|ECONN|ETIMEDOUT|ENOTFOUND)/i.test(err.message) ||
       err.cause !== undefined;
@@ -126,4 +178,21 @@ function mapAiSdkError(err: unknown, req: ResolvedRequest): Error {
     modelId: req.modelId,
     mode: req.mode,
   });
+}
+
+function readStatus(err: unknown): number | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const e = err as { statusCode?: unknown; status?: unknown };
+  if (typeof e.statusCode === 'number') return e.statusCode;
+  if (typeof e.status === 'number') return e.status;
+  return undefined;
+}
+
+function readErrorCode(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const e = err as { data?: { error?: { code?: unknown } }; code?: unknown };
+  const fromData = e.data?.error?.code;
+  if (typeof fromData === 'string') return fromData;
+  if (typeof e.code === 'string') return e.code;
+  return undefined;
 }

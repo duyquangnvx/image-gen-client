@@ -3,6 +3,13 @@ import { runGenerate } from './generate.js';
 import { ImageGenConfigError, ImageGenValidationError, ImageGenNetworkError, ImageGenProviderError } from '../errors.js';
 import type { GenerateInput, ImageGenResult } from '../types.js';
 import { PIXEL_1X1_BASE64, PIXEL_1X1_BYTES } from '../../tests/fixtures/pixel-1x1.png.base64.js';
+import { mapAiSdkError } from './generate.js';
+import {
+  RateLimitError,
+  AuthError,
+  ContentPolicyError,
+  ModelUnavailableError,
+} from '../errors.js';
 
 vi.mock('ai', () => ({
   generateImage: vi.fn(),
@@ -158,5 +165,147 @@ describe('runGenerate — slice 1', () => {
         env: { AI_GATEWAY_API_KEY: 'k' },
       }),
     ).rejects.toBe(abortErr);
+  });
+});
+
+const ctx = { modelId: 'openai/gpt-image-2' as const, mode: 'direct' as const };
+
+interface FakeApiError extends Error {
+  statusCode?: number;
+  data?: { error?: { code?: string } };
+}
+
+function makeApiError(status: number, code = 'PROVIDER'): FakeApiError {
+  const e = new Error(`API ${status}`) as FakeApiError;
+  e.name = 'AI_APICallError';
+  e.statusCode = status;
+  e.data = { error: { code } };
+  return e;
+}
+
+describe('mapAiSdkError — HTTP status → subtype (slice 2)', () => {
+  test('429 → RateLimitError', () => {
+    const out = mapAiSdkError(makeApiError(429), {
+      ...ctx,
+      operation: 'generate',
+      apiPath: 'generateImage',
+      capability: {
+        textToImage: true,
+        imageEdit: true,
+        multiReference: true,
+        transparentBackground: true,
+        maxN: 4,
+        supportsSeed: true,
+        supportsNegativePrompt: false,
+        apiPath: 'generateImage',
+      },
+      n: 1,
+    });
+    expect(out).toBeInstanceOf(RateLimitError);
+    expect((out as RateLimitError).code).toBe('RATE_LIMIT');
+  });
+
+  test('401 → AuthError', () => {
+    const out = mapAiSdkError(makeApiError(401), {
+      ...ctx,
+      operation: 'generate',
+      apiPath: 'generateImage',
+      capability: {
+        textToImage: true,
+        imageEdit: true,
+        multiReference: true,
+        transparentBackground: true,
+        maxN: 4,
+        supportsSeed: true,
+        supportsNegativePrompt: false,
+        apiPath: 'generateImage',
+      },
+      n: 1,
+    });
+    expect(out).toBeInstanceOf(AuthError);
+  });
+
+  test('403 → AuthError', () => {
+    const out = mapAiSdkError(makeApiError(403), {
+      ...ctx,
+      operation: 'generate',
+      apiPath: 'generateImage',
+      capability: {
+        textToImage: true,
+        imageEdit: true,
+        multiReference: true,
+        transparentBackground: true,
+        maxN: 4,
+        supportsSeed: true,
+        supportsNegativePrompt: false,
+        apiPath: 'generateImage',
+      },
+      n: 1,
+    });
+    expect(out).toBeInstanceOf(AuthError);
+  });
+
+  test('404 → ModelUnavailableError MODEL_NOT_FOUND retryable=false', () => {
+    const out = mapAiSdkError(makeApiError(404), {
+      ...ctx,
+      operation: 'generate',
+      apiPath: 'generateImage',
+      capability: {
+        textToImage: true,
+        imageEdit: true,
+        multiReference: true,
+        transparentBackground: true,
+        maxN: 4,
+        supportsSeed: true,
+        supportsNegativePrompt: false,
+        apiPath: 'generateImage',
+      },
+      n: 1,
+    });
+    expect(out).toBeInstanceOf(ModelUnavailableError);
+    expect((out as ModelUnavailableError).code).toBe('MODEL_NOT_FOUND');
+    expect((out as ModelUnavailableError).retryable).toBe(false);
+  });
+
+  test('503 → ModelUnavailableError MODEL_UNAVAILABLE retryable=true', () => {
+    const out = mapAiSdkError(makeApiError(503), {
+      ...ctx,
+      operation: 'generate',
+      apiPath: 'generateImage',
+      capability: {
+        textToImage: true,
+        imageEdit: true,
+        multiReference: true,
+        transparentBackground: true,
+        maxN: 4,
+        supportsSeed: true,
+        supportsNegativePrompt: false,
+        apiPath: 'generateImage',
+      },
+      n: 1,
+    });
+    expect(out).toBeInstanceOf(ModelUnavailableError);
+    expect((out as ModelUnavailableError).code).toBe('MODEL_UNAVAILABLE');
+    expect((out as ModelUnavailableError).retryable).toBe(true);
+  });
+
+  test('400 + content_policy_violation code → ContentPolicyError', () => {
+    const out = mapAiSdkError(makeApiError(400, 'content_policy_violation'), {
+      ...ctx,
+      operation: 'generate',
+      apiPath: 'generateImage',
+      capability: {
+        textToImage: true,
+        imageEdit: true,
+        multiReference: true,
+        transparentBackground: true,
+        maxN: 4,
+        supportsSeed: true,
+        supportsNegativePrompt: false,
+        apiPath: 'generateImage',
+      },
+      n: 1,
+    });
+    expect(out).toBeInstanceOf(ContentPolicyError);
   });
 });
