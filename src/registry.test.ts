@@ -31,4 +31,10 @@ describe('registry — slice 1', () => {
     expect(Object.isFrozen(entry)).toBe(true);
     expect(Object.isFrozen(entry?.capability)).toBe(true);
   });
+
+  test('capability sizes array is frozen at runtime', () => {
+    const entry = BUILT_IN_MODELS['openai/gpt-image-2'];
+    expect(entry).toBeDefined();
+    expect(Object.isFrozen(entry?.capability.sizes)).toBe(true);
+  });
 });
