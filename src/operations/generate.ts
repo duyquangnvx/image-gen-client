@@ -1,0 +1,129 @@
+import { generateImage } from 'ai';
+import { ImageGenConfigError, ImageGenNetworkError, ImageGenProviderError } from '../errors.js';
+import { composeChain } from '../middleware/chain.js';
+import type { Context, Handler } from '../middleware/chain.js';
+import { createLoggingMiddleware } from '../middleware/logging.js';
+import { createValidationMiddleware } from '../middleware/validation-mw.js';
+import { createDefaultAdapter } from '../providers/default.js';
+import type { ResolvedRequest } from '../providers/adapter.js';
+import { getModel } from '../registry.js';
+import { resolveMode } from '../resolver.js';
+import { normalizeResult } from '../result.js';
+import type { GenerateInput, ImageGenResult } from '../types.js';
+import type { ResolvedConfig } from '../config.js';
+
+export interface RunGenerateArgs {
+  readonly input: GenerateInput;
+  readonly config: ResolvedConfig;
+  readonly env: Readonly<Record<string, string | undefined>>;
+}
+
+export async function runGenerate(args: RunGenerateArgs): Promise<ImageGenResult> {
+  const modelId = args.input.model ?? args.config.defaultModel;
+  if (modelId === undefined) {
+    throw new ImageGenConfigError(
+      "no model specified — pass 'model' in the call or set 'defaultModel' on the client",
+      'CONFIG_NO_MODEL',
+      { hint: "createClient({ defaultModel: 'openai/gpt-image-2' }) or generate({ model: ... })" },
+    );
+  }
+
+  const entry = getModel(modelId);
+  if (entry === undefined) {
+    throw new ImageGenConfigError(
+      `model '${modelId}' is not in the registry`,
+      'CONFIG_UNKNOWN_MODEL',
+      { modelId, hint: 'check the model id or register it via registerModel' },
+    );
+  }
+
+  const mode = resolveMode({
+    modelId,
+    ...(args.input.mode !== undefined && { callOverride: args.input.mode }),
+    clientMode: args.config.mode,
+    env: args.env,
+    ...(args.config.gatewayApiKey !== undefined && { gatewayApiKey: args.config.gatewayApiKey }),
+  });
+
+  const req: ResolvedRequest = {
+    operation: 'generate',
+    modelId,
+    mode,
+    apiPath: entry.capability.apiPath,
+    capability: entry.capability,
+    prompt: args.input.prompt,
+    ...(args.input.negativePrompt !== undefined && { negativePrompt: args.input.negativePrompt }),
+    ...(args.input.size !== undefined && { size: args.input.size }),
+    ...(args.input.aspectRatio !== undefined && { aspectRatio: args.input.aspectRatio }),
+    n: args.input.n ?? 1,
+    ...(args.input.seed !== undefined && { seed: args.input.seed }),
+    ...(args.input.background !== undefined && { background: args.input.background }),
+    ...(args.input.format !== undefined && { format: args.input.format }),
+    ...(args.input.providerOptions !== undefined && { providerOptions: args.input.providerOptions }),
+    ...(args.input.signal !== undefined && { signal: args.input.signal }),
+  };
+
+  const adapter = createDefaultAdapter();
+  const terminal: Handler = async (resolvedReq) => {
+    const start = Date.now();
+    const call = adapter.buildCall(resolvedReq);
+    if (call.fn !== 'generateImage') {
+      throw new ImageGenProviderError(
+        'generateText path lands in slice 2',
+        'PROVIDER_UNSUPPORTED_PATH',
+      );
+    }
+    let raw: unknown;
+    try {
+      raw = await generateImage(call.args as Parameters<typeof generateImage>[0]);
+    } catch (err) {
+      throw mapAiSdkError(err, resolvedReq);
+    }
+    const finish = Date.now();
+    return normalizeResult({ fn: 'generateImage', output: raw }, resolvedReq, { start, finish });
+  };
+
+  const chain = composeChain(
+    [createLoggingMiddleware(), createValidationMiddleware()],
+    terminal,
+  );
+
+  const ctx: Context = {
+    startedAt: Date.now(),
+    modelId,
+    mode,
+    attempt: 1,
+    ...(args.input.signal !== undefined && { signal: args.input.signal }),
+    ...(args.config.logger !== undefined && { logger: args.config.logger }),
+  };
+
+  return chain(req, ctx);
+}
+
+function mapAiSdkError(err: unknown, req: ResolvedRequest): Error {
+  if (err instanceof Error) {
+    const name = err.name;
+    if (name === 'AbortError') {
+      return err;
+    }
+    const looksLikeNetwork =
+      /(fetch|network|ECONN|ETIMEDOUT|ENOTFOUND)/i.test(err.message) ||
+      err.cause !== undefined;
+    if (looksLikeNetwork) {
+      return new ImageGenNetworkError(err.message, 'NETWORK_ERROR', {
+        modelId: req.modelId,
+        mode: req.mode,
+        cause: err,
+      });
+    }
+    return new ImageGenProviderError(err.message, 'PROVIDER_ERROR', {
+      modelId: req.modelId,
+      mode: req.mode,
+      cause: err,
+    });
+  }
+  return new ImageGenProviderError(String(err), 'PROVIDER_ERROR', {
+    modelId: req.modelId,
+    mode: req.mode,
+  });
+}
