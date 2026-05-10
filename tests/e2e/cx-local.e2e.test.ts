@@ -5,7 +5,7 @@ import { probeCxLocal } from './_probe.js';
 let reachable = false;
 
 beforeAll(async () => {
-  const probe = await probeCxLocal(1_000);
+  const probe = await probeCxLocal(3_000);
   reachable = probe.reachable;
   if (!reachable) {
     // eslint-disable-next-line no-console
