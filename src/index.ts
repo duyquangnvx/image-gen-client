@@ -1,2 +1,15 @@
-// Public entry — populated in later tasks.
-export {};
+export type {
+  ApiPath,
+  Capability,
+  ClientOptions,
+  GenerateInput,
+  GeneratedImage,
+  ImageGenResult,
+  LogLevel,
+  Logger,
+  Mode,
+  ModelId,
+  RequestOperation,
+  ResultRequest,
+  TransformKind,
+} from './types.js';
