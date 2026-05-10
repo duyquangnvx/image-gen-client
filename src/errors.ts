@@ -58,25 +58,15 @@ function toInit(
   retryable: boolean,
   init: SubtypeInit,
 ): ImageGenErrorInit {
-  // Build without spread to satisfy exactOptionalPropertyTypes.
-  // Only include optional keys when their value is defined.
-  const base: ImageGenErrorInit = { message, code, category, retryable };
-  if (
-    init.modelId === undefined &&
-    init.mode === undefined &&
-    init.cause === undefined &&
-    init.hint === undefined &&
-    init.providerError === undefined
-  ) {
-    return base;
-  }
-  const extra: Partial<ImageGenErrorInit> = {};
-  if (init.modelId !== undefined) (extra as Record<string, unknown>)['modelId'] = init.modelId;
-  if (init.mode !== undefined) (extra as Record<string, unknown>)['mode'] = init.mode;
-  if (init.cause !== undefined) (extra as Record<string, unknown>)['cause'] = init.cause;
-  if (init.hint !== undefined) (extra as Record<string, unknown>)['hint'] = init.hint;
-  if (init.providerError !== undefined) (extra as Record<string, unknown>)['providerError'] = init.providerError;
-  return Object.assign({}, base, extra) as ImageGenErrorInit;
+  const base = { message, code, category, retryable };
+  return {
+    ...base,
+    ...(init.modelId !== undefined && { modelId: init.modelId }),
+    ...(init.mode !== undefined && { mode: init.mode }),
+    ...(init.cause !== undefined && { cause: init.cause }),
+    ...(init.hint !== undefined && { hint: init.hint }),
+    ...(init.providerError !== undefined && { providerError: init.providerError }),
+  };
 }
 
 export class ImageGenConfigError extends ImageGenError {
